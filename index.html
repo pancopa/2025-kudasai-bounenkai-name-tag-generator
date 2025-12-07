@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name=”robots” content=”noindex,nofollow”>
+  <title>Discord 名札ジェネレーター</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    :root {
+      --blue: #2563eb;
+      --blue-light: #dbeafe;
+      --border: #d4d4d8;
+      --bg: #f5f5f7;
+      --text-main: #111827;
+      --text-sub: #6b7280;
+      --radius: 12px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      padding: 16px;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text-main);
+    }
+
+    .container {
+      max-width: 430px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      font-size: 18px;
+      margin: 0 0 12px;
+      font-weight: 600;
+    }
+
+    .preview-box {
+      background: #ffffff;
+      border-radius: var(--radius);
+      padding: 12px;
+      border: 1px solid var(--border);
+      box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
+      margin-bottom: 16px;
+      text-align: center;
+    }
+
+    .preview-label {
+      font-size: 14px;
+      margin-bottom: 8px;
+      text-align: left;
+    }
+
+    .preview-canvas-wrap {
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid #e5e7eb;
+      background: #ffffff;
+      display: inline-flex;
+      justify-content: center;
+      align-items: center;
+      margin: auto;
+    }
+
+    /* アスペクト比は canvas に任せる */
+    canvas {
+      display: block;
+      max-width: 100%;
+      height: auto;
+    }
+
+    /* 縦レイアウトのときだけ最大高さを制限（比率は維持） */
+    .preview-canvas-wrap.portrait canvas {
+      max-height: 364px;
+    }
+
+    .card {
+      background: #ffffff;
+      border-radius: var(--radius);
+      padding: 12px 12px 16px;
+      border: 1px solid var(--border);
+      box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+    }
+
+    .form-group {
+      margin-bottom: 12px;
+      font-size: 13px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    input[type="text"],
+    textarea {
+      width: 100%;
+      padding: 8px 10px;
+      border-radius: 8px;
+      border: 1px solid #d4d4d8;
+      font-size: 13px;
+      outline: none;
+    }
+
+    input[type="text"]:focus,
+    textarea:focus {
+      border-color: var(--blue);
+      box-shadow: 0 0 0 1px var(--blue-light);
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 60px;
+    }
+
+    .upload-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .upload-label {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 8px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--blue);
+      background: #ffffff;
+      color: var(--blue);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .upload-label:hover {
+      background: var(--blue-light);
+    }
+
+    input[type="file"] {
+      display: none;
+    }
+
+    .upload-status {
+      font-size: 12px;
+      color: var(--text-sub);
+    }
+
+    .radio-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      font-size: 13px;
+    }
+
+    .radio-group label {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      margin-bottom: 0;
+      cursor: pointer;
+    }
+
+    .radio-group input[type="radio"] {
+      accent-color: var(--blue);
+    }
+
+    .button-row {
+      display: flex;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    button {
+      flex: 1;
+      padding: 10px 0;
+      border-radius: 999px;
+      border: none;
+      background: var(--blue);
+      color: #ffffff;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    button:hover { filter: brightness(0.97); }
+
+  @media print {
+  @page {
+    size: A4;
+    margin: 10mm;
+  }
+
+  body {
+    padding: 0;
+    background: #ffffff;
+  }
+  .container {
+    max-width: none;
+    margin: 0;
+  }
+  .card,
+  .button-row,
+  .form-group,
+  h1 {
+    display: none;
+  }
+  .preview-box {
+    border: none;
+    box-shadow: none;
+    margin: 0;
+    padding: 0;
+    text-align: center;
+  }
+  .preview-label {
+    display: none;
+    text-align: left;
+  }
+
+  /* ★ ラッパーは幅だけ実寸指定、高さは中身に任せる */
+  .preview-canvas-wrap {
+    border: 1px solid #c4c4c4;
+    border-radius: 0;
+    width: var(--card-width-mm);
+    height: auto;
+    margin: 0 auto;
+  }
+
+  /* ★ canvas は幅100％・高さは自動（比率を維持） */
+  canvas {
+    width: 100% !important;
+    height: auto !important;
+    max-width: none;
+  }
+
+  .preview-canvas-wrap.portrait canvas {
+    max-height: none !important;
+  }
+}
+
+
+
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Discord 名札ジェネレーター</h1>
+
+    <div class="preview-box">
+      <div class="preview-label">プレビュー</div>
+      <div class="preview-canvas-wrap" id="previewWrap">
+        <canvas id="cardCanvas"></canvas>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="form-group">
+        <label>アバター画像</label>
+        <div class="upload-row">
+          <label class="upload-label" for="avatarInput">画像をアップロード</label>
+          <span class="upload-status" id="uploadStatus">画像がアップロードされていません</span>
+          <input type="file" id="avatarInput" accept="image/*">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="displayName">Discord name</label>
+        <input type="text" id="displayName" placeholder="Discord name">
+      </div>
+
+      <div class="form-group">
+        <label for="dept">Discord 所属部屋（任意）</label>
+        <textarea id="dept" placeholder="Discord 所属部屋"></textarea>
+      </div>
+
+      <div class="form-group">
+        <div class="radio-group">
+          <span>サイズ</span>
+          <label><input type="radio" name="size" value="meishi" checked>名刺サイズ</label>
+          <label><input type="radio" name="size" value="hagaki">ハガキサイズ</label>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <div class="radio-group">
+          <span>向き</span>
+          <label><input type="radio" name="orientation" value="landscape" checked>横向き</label>
+          <label><input type="radio" name="orientation" value="portrait">縦向き</label>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <div class="radio-group">
+          <span>テーマ</span>
+          <label><input type="radio" name="theme" value="light" checked>白基調</label>
+          <label><input type="radio" name="theme" value="dark">黒基調</label>
+        </div>
+      </div>
+
+      <div class="button-row">
+        <button type="button" id="saveBtn">画像を保存する</button>
+        <button type="button" id="printBtn">印刷する</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ===== 共通 =====
+    function mmToPx(mm) {
+      const dpi = 300;
+      const inch = mm / 25.4;
+      return Math.round(inch * dpi);
+    }
+
+    const canvas = document.getElementById("cardCanvas");
+    const ctx = canvas.getContext("2d");
+    const previewWrap = document.getElementById("previewWrap");
+
+    const displayNameInput = document.getElementById("displayName");
+    const deptInput = document.getElementById("dept");
+    const avatarInput = document.getElementById("avatarInput");
+    const uploadStatus = document.getElementById("uploadStatus");
+    const saveBtn = document.getElementById("saveBtn");
+    const printBtn = document.getElementById("printBtn");
+
+    let avatarImg = null;
+
+    // 背景SVGファイルのマップ
+    const backgroundMap = {
+      "meishi_light_landscape": "bg_meishi_light_landscape.svg",
+      "meishi_dark_landscape":  "bg_meishi_dark_landscape.svg",
+      "meishi_light_portrait":  "bg_meishi_light_portrait.svg",
+      "meishi_dark_portrait":   "bg_meishi_dark_portrait.svg",
+      "hagaki_light_landscape": "bg_hagaki_light_landscape.svg",
+      "hagaki_dark_landscape":  "bg_hagaki_dark_landscape.svg",
+      "hagaki_light_portrait":  "bg_hagaki_light_portrait.svg",
+      "hagaki_dark_portrait":   "bg_hagaki_dark_portrait.svg",
+    };
+
+    const backgroundCache = {};
+
+    // 画像アップロード
+    avatarInput.addEventListener("change", () => {
+      const file = avatarInput.files[0];
+      if (!file) {
+        avatarImg = null;
+        uploadStatus.textContent = "画像がアップロードされていません";
+        drawCard();
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = e => {
+        const img = new Image();
+        img.onload = () => {
+          avatarImg = img;
+          uploadStatus.textContent = "画像がアップロードされました";
+          drawCard();
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+
+    // 入力変更で再描画
+    displayNameInput.addEventListener("input", () => drawCard());
+    deptInput.addEventListener("input", () => drawCard());
+    document.querySelectorAll('input[name="size"]').forEach(r =>
+      r.addEventListener("change", () => drawCard())
+    );
+    document.querySelectorAll('input[name="orientation"]').forEach(r =>
+      r.addEventListener("change", () => drawCard())
+    );
+    document.querySelectorAll('input[name="theme"]').forEach(r =>
+      r.addEventListener("change", () => drawCard())
+    );
+
+    // 保存・印刷
+    saveBtn.addEventListener("click", () => {
+      const size = document.querySelector('input[name="size"]:checked').value;
+      const orientation = document.querySelector('input[name="orientation"]:checked').value;
+      const theme = document.querySelector('input[name="theme"]:checked').value;
+      const nameForFile = (displayNameInput.value || "noname").replace(/[^a-zA-Z0-9-_]/g, "_");
+
+      // 所属部屋が空欄のときはプレースホルダーを描かずに書き出す
+      drawCard(() => {
+        const link = document.createElement("a");
+        link.href = canvas.toDataURL("image/png");
+        link.download = `discord-card_${nameForFile}_${size}_${orientation}_${theme}.png`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }, true);
+    });
+
+
+    printBtn.addEventListener("click", () => {
+  const size = document.querySelector('input[name="size"]:checked').value;
+  const orientation = document.querySelector('input[name="orientation"]:checked').value;
+
+  // 印刷時のカード実寸（mm）
+  let widthMm, heightMm;
+  if (size === "meishi") {
+    widthMm = 91;
+    heightMm = 55;
+  } else {
+    widthMm = 148;
+    heightMm = 100;
+  }
+  if (orientation === "portrait") {
+    [widthMm, heightMm] = [heightMm, widthMm];
+  }
+
+  // CSS 変数に物理サイズを渡す（ラッパーの width に使う）
+  document.documentElement.style.setProperty("--card-width-mm", widthMm + "mm");
+  document.documentElement.style.setProperty("--card-height-mm", heightMm + "mm");
+
+  // キャンバスは通常どおりピクセルで描き直すだけ
+  drawCard(() => {
+    window.print();
+  }, true); // ← 第2引数 true を追加（プレースホルダー非表示）
+});
+
+
+
+
+    // 1行分を幅で折り返す（日本語対応）
+    function wrapText(ctx, text, maxWidth) {
+      const lines = [];
+      let line = "";
+      for (const ch of text) {
+        const test = line + ch;
+        const w = ctx.measureText(test).width;
+        if (w > maxWidth && line !== "") {
+          lines.push(line);
+          line = ch;
+        } else {
+          line = test;
+        }
+      }
+      if (line) lines.push(line);
+      return lines;
+    }
+
+    // 複数行（改行含む）をまとめて折り返し
+    function wrapLines(ctx, rawLines, maxWidth, maxLines) {
+      const result = [];
+      for (const raw of rawLines) {
+        const segments = wrapText(ctx, raw, maxWidth);
+        for (const seg of segments) {
+          result.push(seg);
+          if (maxLines && result.length >= maxLines) {
+            return result;
+          }
+        }
+      }
+      return result;
+    }
+
+      // メイン描画
+      function drawCard(done, hidePlaceholder = false) {
+      const name = displayNameInput.value || "なまえなまえ";
+      const deptText = deptInput.value.trim();
+
+      const size = document.querySelector('input[name="size"]:checked').value;
+      const orientation = document.querySelector('input[name="orientation"]:checked').value;
+      const theme = document.querySelector('input[name="theme"]:checked').value;
+
+      // プレビュー高さ制御クラス
+      if (orientation === "portrait") {
+        previewWrap.classList.add("portrait");
+      } else {
+        previewWrap.classList.remove("portrait");
+      }
+
+      // サイズ
+      let widthMm, heightMm;
+      if (size === "meishi") {
+        widthMm = 91;
+        heightMm = 55;
+      } else {
+        widthMm = 148;
+        heightMm = 100;
+      }
+      if (orientation === "portrait") {
+        [widthMm, heightMm] = [heightMm, widthMm];
+      }
+
+      const widthPx = mmToPx(widthMm);
+      const heightPx = mmToPx(heightMm);
+      canvas.width = widthPx;
+      canvas.height = heightPx;
+
+      const key = `${size}_${theme}_${orientation}`;
+
+      drawBackground(key, widthPx, heightPx, () => {
+        drawForeground(name, deptText, widthPx, heightPx, theme, orientation, hidePlaceholder);
+        if (typeof done === "function") done();
+      });
+    }
+
+
+    // 背景描画
+    function drawBackground(key, widthPx, heightPx, callback) {
+      const file = backgroundMap[key];
+      if (!file) {
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, widthPx, heightPx);
+        callback();
+        return;
+      }
+
+      if (backgroundCache[key]) {
+        const img = backgroundCache[key];
+        ctx.clearRect(0, 0, widthPx, heightPx);
+        ctx.drawImage(img, 0, 0, widthPx, heightPx);
+        callback();
+        return;
+      }
+
+      const img = new Image();
+      img.onload = () => {
+        backgroundCache[key] = img;
+        ctx.clearRect(0, 0, widthPx, heightPx);
+        ctx.drawImage(img, 0, 0, widthPx, heightPx);
+        callback();
+      };
+      img.src = file;
+    }
+
+    // 前景（アバター・名前・所属）
+    function drawForeground(name, deptText, widthPx, heightPx, theme, orientation, hidePlaceholder) {
+      const light = theme === "light";
+      const textMain = light ? "#0f172a" : "#f9fafb";
+      const textSub  = light ? "#4b5563" : "#e5e7eb";
+
+      const hasDept = deptText && deptText.trim() !== "";
+      const deptRawLines = hasDept
+        ? deptText.split(/\r?\n/).filter(l => l.trim() !== "")
+        : (hidePlaceholder ? [] : ["所属部屋1", "所属部屋2", "所属部屋3"]);
+
+      const padding = widthPx * 0.06;
+      const innerX = padding;
+      const innerY = padding;
+      const innerW = widthPx - padding * 2;
+      const innerH = heightPx - padding * 2;
+
+      if (orientation === "portrait") {
+        // ==== 縦レイアウト ====
+        // アバター
+        let avatarSize = innerW * 0.8;
+        avatarSize = Math.min(avatarSize, innerH * 0.55);
+        const avatarX = widthPx / 2;
+        const avatarY = innerY + avatarSize / 2 + innerH * 0.06;
+        drawAvatarSquare(avatarX, avatarY, avatarSize, light);
+
+        // 名前（中央・折り返し）
+        ctx.textBaseline = "alphabetic";
+        ctx.textAlign = "center";
+        ctx.fillStyle = textMain;
+
+        const nameAreaWidth = innerW * 0.9;
+        const nameX = widthPx / 2;
+        const baseNameY = avatarY + avatarSize / 2 + heightPx * 0.12;
+
+        let fontSize = Math.round(heightPx * 0.11);
+        const minFont = Math.round(fontSize * 0.6);
+        while (fontSize >= minFont) {
+          ctx.font = `bold ${fontSize}px "Hiragino Sans", "Yu Gothic", system-ui, sans-serif`;
+          if (ctx.measureText(name).width <= nameAreaWidth) break;
+          fontSize--;
+        }
+
+        const nameLines = wrapText(ctx, name, nameAreaWidth).slice(0, 2);
+        const nameLineHeight = fontSize * 1.1;
+        const nameBlockHeight = nameLineHeight * nameLines.length;
+        let firstNameLineY = baseNameY;
+        if (nameLines.length > 1) {
+          firstNameLineY = baseNameY - (nameBlockHeight - nameLineHeight) / 2;
+        }
+        let lastNameBottomY = firstNameLineY;
+
+        nameLines.forEach((line, i) => {
+          const y = firstNameLineY + nameLineHeight * i;
+          ctx.fillText(line, nameX, y);
+          lastNameBottomY = y;
+        });
+
+        // 所属（名前と同じ最大幅で折り返し・少し下に）
+        ctx.fillStyle = textSub;
+        ctx.textAlign = "left";
+
+        const deptFont = Math.round(heightPx * 0.041); // 横と見た目をそろえる係数
+        ctx.font = `${deptFont}px "Hiragino Sans", "Yu Gothic", system-ui, sans-serif`;
+
+        const deptMaxWidth = nameAreaWidth;
+        const deptLines = wrapLines(ctx, deptRawLines, deptMaxWidth, 3); // 最大3行
+        const deptX = widthPx / 2 - deptMaxWidth / 2.1; // 名前と同じ左端
+        const deptStartY = lastNameBottomY + deptFont * 2.1; // 少し下に移動
+
+        deptLines.forEach((line, i) => {
+          ctx.fillText(line, deptX, deptStartY + deptFont * 1.4 * i);
+        });
+
+      } else {
+        // ==== 横レイアウト ====
+        // アバター
+        const avatarSize = Math.min(innerH * 0.65, innerW * 0.42);
+        const avatarX = innerX + avatarSize / 2;
+        const avatarY = innerY + innerH * 0.5;
+        drawAvatarSquare(avatarX, avatarY, avatarSize, light);
+
+        // 名前（左揃え・折り返し）
+        ctx.textBaseline = "alphabetic";
+        ctx.textAlign = "left";
+        ctx.fillStyle = textMain;
+
+        const nameAreaX = avatarX + avatarSize / 2 + innerW * 0.05;
+        const nameAreaY = innerY + innerH * 0.32;
+        const nameAreaWidth = innerW - (avatarSize + innerW * 0.07);
+
+        let fontSize = Math.round(heightPx * 0.16);
+        const minFont = Math.round(fontSize * 0.6);
+        while (fontSize >= minFont) {
+          ctx.font = `bold ${fontSize}px "Hiragino Sans", "Yu Gothic", system-ui, sans-serif`;
+          if (ctx.measureText(name).width <= nameAreaWidth) break;
+          fontSize--;
+        }
+
+        const nameLines = wrapText(ctx, name, nameAreaWidth).slice(0, 2);
+        const nameLineHeight = fontSize * 1.05;
+        let lastNameBottomY = nameAreaY;
+
+        nameLines.forEach((line, i) => {
+          const y = nameAreaY + nameLineHeight * i;
+          ctx.fillText(line, nameAreaX, y);
+          lastNameBottomY = y;
+        });
+
+        // 所属（名前と同じ幅で折り返し）
+        ctx.fillStyle = textSub;
+        const deptFont = Math.round(heightPx * 0.06);
+        ctx.font = `${deptFont}px "Hiragino Sans", "Yu Gothic", system-ui, sans-serif`;
+
+        const deptLines = wrapLines(ctx, deptRawLines, nameAreaWidth, 3); // 最大3行
+        const deptStartY = lastNameBottomY + deptFont * 1.6;
+
+        deptLines.forEach((line, i) => {
+          ctx.fillText(line, nameAreaX, deptStartY + deptFont * 1.4 * i);
+        });
+      }
+    }
+
+    // アバター四角
+    function drawAvatarSquare(cx, cy, size, lightTheme) {
+      const r = size * 0.12;
+      const x = cx - size / 2;
+      const y = cy - size / 2;
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.roundRect(x, y, size, size, r);
+      ctx.clip();
+
+      if (avatarImg) {
+        const imgSize = Math.min(avatarImg.width, avatarImg.height);
+        const sx = (avatarImg.width - imgSize) / 2;
+        const sy = (avatarImg.height - imgSize) / 2;
+        ctx.drawImage(
+          avatarImg,
+          sx,
+          sy,
+          imgSize,
+          imgSize,
+          x,
+          y,
+          size,
+          size
+        );
+      } else {
+        ctx.fillStyle = lightTheme ? "#e5e7eb" : "#1f2937";
+        ctx.fillRect(x, y, size, size);
+      }
+      ctx.restore();
+
+      ctx.beginPath();
+      ctx.roundRect(x, y, size, size, r);
+      ctx.strokeStyle = lightTheme ? "#d4d4d8" : "#374151";
+      ctx.lineWidth = size * 0.03;
+      ctx.stroke();
+    }
+
+    // 初期描画
+    drawCard();
+  </script>
+</body>
+</html>
